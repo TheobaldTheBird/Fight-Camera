@@ -1,0 +1,38 @@
+{
+	"schemaVersion": 1,
+	"id": "fight-camera",
+	"version": "${version}",
+	"name": "Fight Camera",
+	"description": "Side-on camera view of any 2 players",
+	"authors": [
+		"TheobaldTheBird"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/fight-camera/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"com.theobald.FightCameraClient"
+		]
+	},
+	"mixins": [
+		{
+			"config": "fight-camera.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.16.10",
+		"minecraft": "~1.21",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	},
+	"accessWidener": "fight-camera.accesswidener"
+}

@@ -1,0 +1,3 @@
+[submodule "flashback"]
+	path = flashback
+	url = https://github.com/Moulberry/Flashback.git

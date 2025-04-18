@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "package": "com.theobald.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "CameraMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "mixins": [
+    "FlashbackCameraMixin",
+    "LivingEntityRendererMixin",
+    "PerspectiveMixin"
+  ]
+}
