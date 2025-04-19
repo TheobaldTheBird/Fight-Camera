@@ -200,6 +200,9 @@ public class FightCameraClient implements ClientModInitializer {
 		if (active) {
 			if (client.player != null && updatePlayers()) {
 				sendMessage("Fight cam enabled!");
+
+				currentTargetPos = Util.Average(players[0].getPos(), players[1].getPos());
+				currentTargetYaw = CalculateCameraYaw();
 			}
 			else {
 				active = false;
@@ -223,10 +226,6 @@ public class FightCameraClient implements ClientModInitializer {
 
 	public static boolean checkPlayers() {
 		return (playerStrings[0] != null && playerStrings[1] != null);
-	}
-
-	public static void setDistance(float f) {
-		distance = f;
 	}
 
 	public static void updateTarget(Vec3d newPos) {
