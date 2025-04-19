@@ -25,16 +25,36 @@ public class FightCamCommand {
         return builder.buildFuture();
     };
 
+    private static final SuggestionProvider<FabricClientCommandSource> DISTANCEMODE_SUGGESTIONS = (context, builder) -> {
+        builder.suggest("auto");
+        return builder.buildFuture();
+    };
+
+    private static final SuggestionProvider<FabricClientCommandSource> ANCHORMODE_SUGGESTIONS = (context, builder) -> {
+        builder.suggest("avg");
+        builder.suggest("p1");
+        builder.suggest("p2");
+        return builder.buildFuture();
+    };
+
     public static void register() {
         LOGGER.info("Registering FightCam commands");
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
                 dispatcher.register(ClientCommandManager.literal("fightcam")
                         .then(ClientCommandManager.literal("distance")
                                 .then(ClientCommandManager.argument("distance", StringArgumentType.string())
+                                        .suggests(DISTANCEMODE_SUGGESTIONS)
                                         .executes(context -> {
-                                            float f = FloatArgumentType.getFloat(context, "distance");
-                                            FightCameraClient.setDistance(f);
-                                            sendMessage(context, "Fight camera distance set to " + f);
+                                            String s = StringArgumentType.getString(context, "distance");
+                                            FightCameraClient.setDistanceMode(s);
+                                            return 1;
+                                        })))
+                        .then(ClientCommandManager.literal("anchor")
+                                .then(ClientCommandManager.argument("anchor", StringArgumentType.string())
+                                        .suggests(ANCHORMODE_SUGGESTIONS)
+                                        .executes(context -> {
+                                            String s = StringArgumentType.getString(context, "anchor");
+                                            FightCameraClient.setAnchorMode(s);
                                             return 1;
                                         })))
                         .then(ClientCommandManager.literal("height")
@@ -42,15 +62,17 @@ public class FightCamCommand {
                                         .executes(context -> {
                                             float f = FloatArgumentType.getFloat(context, "height");
                                             FightCameraClient.setHeight(f);
-                                            sendMessage(context, "Fight camera height set to " + f);
+                                            sendMessage("Fight camera height set to " + f);
                                             return 1;
                                         })))
-                        .then(ClientCommandManager.literal("lerp")
-                                .executes(context -> {
-                                    FightCameraClient.toggleLerp();
-                                    sendMessage(context, "Fight camera lerp toggled");
-                                    return 1;
-                                }))
+                        .then(ClientCommandManager.literal("smooth")
+                                .then(ClientCommandManager.argument("smoothFactor", FloatArgumentType.floatArg())
+                                        .executes(context -> {
+                                            float f = FloatArgumentType.getFloat(context, "smoothFactor");
+                                            FightCameraClient.setSmoothFactor(f);
+                                            sendMessage("Fight camera smoothing set to " + f);
+                                            return 1;
+                                })))
                         .then(ClientCommandManager.literal("players")
                                 .then(ClientCommandManager.argument("player1", StringArgumentType.string())
                                         .suggests(PLAYER_SUGGESTIONS)
@@ -60,29 +82,21 @@ public class FightCamCommand {
                                                     String name1 = StringArgumentType.getString(context, "player1");
                                                     String name2 = StringArgumentType.getString(context, "player2");
 
-                                                    PlayerEntity p1 = MinecraftClient.getInstance().world.getPlayers()
-                                                            .stream().filter(p -> p.getName().getString().equals(name1)).findFirst().orElse(null);
-                                                    PlayerEntity p2 = MinecraftClient.getInstance().world.getPlayers()
-                                                            .stream().filter(p -> p.getName().getString().equals(name2)).findFirst().orElse(null);
+                                                    FightCameraClient.playerStrings = new String[] {name1, name2};
+                                                    FightCameraClient.updatePlayers();
 
-                                                    if (p1 == null || p2 == null) {
-                                                        sendMessage(context, "One or both players not found.");
-                                                        return 0;
-                                                    }
-
-                                                    FightCameraClient.setPlayers(new PlayerEntity[]{p1, p2});
-                                                    sendMessage(context, "Fight camera set to " + name1 + " and " + name2);
+                                                    sendMessage("Fight camera set to " + name1 + " and " + name2);
                                                     return 1;
                                                 }))))
                         .then(ClientCommandManager.literal("toggle")
                                 .executes(context -> {
                                     FightCameraClient.toggle();
-                                    sendMessage(context, "Fight camera toggled");
+                                    sendMessage("Fight camera toggled");
                                     return 1;
                                 }))));
     }
 
-    private static void sendMessage(CommandContext<FabricClientCommandSource> context, String message) {
+    private static void sendMessage(String message) {
         PlayerEntity player = MinecraftClient.getInstance().player;
         if (player != null) {
             player.sendMessage(Text.literal(message), false);

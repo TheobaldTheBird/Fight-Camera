@@ -6,11 +6,12 @@
     "CameraMixin"
   ],
   "injectors": {
-    "defaultRequire": 1
+    "defaultRequire": 0
   },
   "mixins": [
     "FlashbackCameraMixin",
     "LivingEntityRendererMixin",
-    "PerspectiveMixin"
+    "PerspectiveMixin",
+    "PlayerEntityMixin"
   ]
 }
