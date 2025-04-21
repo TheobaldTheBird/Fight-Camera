@@ -16,7 +16,7 @@ public class FlashbackCameraMixin {
     @Inject(method = "isInReplay", at=@At("HEAD"), cancellable = true)
     private static void cancelInReplay(CallbackInfoReturnable<Boolean> cir) {
         if (FightCameraClient.getActive()) {
-            cir.setReturnValue(false);
+            //cir.setReturnValue(false);
         }
     }
 }

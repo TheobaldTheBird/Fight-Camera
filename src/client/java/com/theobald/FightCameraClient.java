@@ -7,13 +7,16 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.block.ShapeContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.Text;
+import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.RaycastContext;
 import org.lwjgl.glfw.GLFW;
 
 import java.text.DecimalFormat;
@@ -25,12 +28,15 @@ public class FightCameraClient implements ClientModInitializer {
 	public static MinecraftClient client;
 	private static boolean flashbackLoaded = false;
 	public boolean keybindPressed = false;
+	public static boolean toggled = false;
 	public static boolean active = false;
 	public static boolean lerp = true;
 	public static AnchorMode anchor = AnchorMode.AVERAGE;
+	public static HeightMode heightMode = HeightMode.GROUND;
 	public static DistanceMode distanceMode = DistanceMode.AUTO	;
 	public static String[] playerStrings = {"", ""};
 	public static PlayerEntity[] players;
+	public static float[] groundHeights = {60, 60};
 	public static float smoothFactor = 0.7f;
 	public static float distance = 3f;
 	public static Vec3d lastTargetPos = Vec3d.ZERO;
@@ -38,7 +44,7 @@ public class FightCameraClient implements ClientModInitializer {
 	public static float lastTargetYaw = 0f;
 	public static float currentTargetYaw = 0f;
 	public static float height = 1.5f;
-	public static float xoffset = 2;
+	public static float xoffset = 0;
 	public static final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 	DecimalFormat df = new DecimalFormat();
 
@@ -46,6 +52,11 @@ public class FightCameraClient implements ClientModInitializer {
 		P1,
 		P2,
 		AVERAGE
+	}
+
+	public enum HeightMode {
+		AVERAGE,
+		GROUND
 	}
 
 	public enum DistanceMode {
@@ -59,10 +70,10 @@ public class FightCameraClient implements ClientModInitializer {
 		df.setMaximumFractionDigits(1);
 
 		var toggleBind = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-				"Toggle", // The translation key of the keybinding's name
-				InputUtil.Type.KEYSYM, // The type of the keybinding, KEYSYM for keyboard, MOUSE for mouse.
-				GLFW.GLFW_KEY_SEMICOLON, // The keycode of the key
-				"FightCam" // The translation key of the keybinding's category.
+				"Toggle",
+				InputUtil.Type.KEYSYM,
+				GLFW.GLFW_KEY_SEMICOLON,
+				"FightCam"
 		));
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -77,29 +88,31 @@ public class FightCameraClient implements ClientModInitializer {
 				keybindPressed = false;
 			}
 		});
-		WorldRenderEvents.START.register(context -> onRender());
+		WorldRenderEvents.START.register(context -> onRender(context.tickCounter().getTickDelta(true)));
 
 		FightCamCommand.register();
 		if (FabricLoader.getInstance().isModLoaded("flashback")) { flashbackLoaded = true; }
 	}
 
 	private void onUpdate() {
-		if (active)
-		{
-			if (client.player != null) {
-				updatePlayers();
-			}
+		if (toggled) {
+			active = updatePlayers();
+		} else {
+			active = false;
+		}
 
+		if (active && client.player != null) {
 			updateTarget(CalculateCameraPos());
 			updateYawTarget(CalculateCameraYaw());
+			updateGroundHeights();
 
 			if (client.options.jumpKey.isPressed()) {
-				height += .1f;
-				client.player.sendMessage(Text.literal("Height: " + df.format(distance)), true);
+				height += client.options.sprintKey.isPressed() ? .2f : .1f;
+				client.player.sendMessage(Text.literal("Height: " + df.format(height)), true);
 			}
 			if (client.options.sneakKey.isPressed()) {
-				height -= .1f;
-				client.player.sendMessage(Text.literal("Height: " + df.format(distance)), true);
+				height -= client.options.sprintKey.isPressed() ? .2f : .1f;
+				client.player.sendMessage(Text.literal("Height: " + df.format(height)), true);
 			}
 			if (client.options.forwardKey.isPressed()) {
 				distance -= client.options.sprintKey.isPressed() ? .2f : .1f;
@@ -109,38 +122,55 @@ public class FightCameraClient implements ClientModInitializer {
 				distance += client.options.sprintKey.isPressed() ? .2f : .1f;
 				client.player.sendMessage(Text.literal("Distance: " + df.format(distance)), true);
 			}
-			if (client.options.rightKey.isPressed() && (anchor != AnchorMode.AVERAGE)) {
-				xoffset += client.options.sprintKey.isPressed() ? .2f : .1f;
-				client.player.sendMessage(Text.literal("Offset: " + df.format(xoffset)), true);
-			}
-			if (client.options.leftKey.isPressed() && (anchor != AnchorMode.AVERAGE)) {
-				xoffset -= client.options.sprintKey.isPressed() ? .2f : .1f;
-				client.player.sendMessage(Text.literal("Offset: " + df.format(xoffset)), true);
+			if (anchor != AnchorMode.AVERAGE) {
+				float input = .1f;
+				input *= anchor == AnchorMode.P1 ? 1 : -1;
+				input *= client.options.sprintKey.isPressed() ? 2 : 1;
+
+				if (client.options.rightKey.isPressed()) {
+					xoffset += input;
+					client.player.sendMessage(Text.literal("Offset: " + df.format(xoffset)), true);
+				}
+				if (client.options.leftKey.isPressed() && anchor != AnchorMode.AVERAGE) {
+					xoffset -= input;
+					client.player.sendMessage(Text.literal("Offset: " + df.format(xoffset)), true);
+				}
 			}
 		}
 	}
 
-	private void onRender() {
+//	private void onRender(float tickDelta) {
+//		Camera camera = client.gameRenderer.getCamera();
+//		if (camera != null && active) {
+//			//frame interpolation
+//			float newYaw = lerpAngle(lastTargetYaw,currentTargetYaw,tickDelta);
+//
+//			client.player.setYaw(newYaw);
+//
+//			if (client.player.isSpectator()) {
+//				client.player.refreshPositionAfterTeleport(currentTargetPos);
+//			} else {
+//				Vec3d newPos = getInterpolated(tickDelta);
+//				camera.setPos(newPos);
+//			}
+//		}
+//
+//	}
+
+	private void onRender(float tickDelta) {
 		Camera camera = client.gameRenderer.getCamera();
 		if (camera != null && active) {
 			//frame interpolation
-			Vec3d newPos;
-			float newYaw;
-
-			newPos = getInterpolated(camera.getLastTickDelta());
-			newYaw = lerpAngle(lastTargetYaw,currentTargetYaw,camera.getLastTickDelta());
+			Vec3d newPos = getInterpolated(tickDelta);
+			float newYaw = lerpAngle(lastTargetYaw,currentTargetYaw,tickDelta);
 
 			camera.setPos(newPos);
 			client.player.setYaw(newYaw);
 
 			if (client.player.isSpectator())
 			{
-				Vec3d spectatorPos = lerp ? lastTargetPos.lerp(currentTargetPos, camera.getLastTickDelta()) : currentTargetPos;
+				Vec3d spectatorPos = lastTargetPos.lerp(currentTargetPos, tickDelta);
 				client.player.setPos(spectatorPos.x, spectatorPos.y, spectatorPos.z);
-				if (Flashback.isInReplay())
-				{
-
-				}
 			}
 		}
 
@@ -151,39 +181,40 @@ public class FightCameraClient implements ClientModInitializer {
 		Vec3d avg = Util.Average(players[0].getPos(),players[1].getPos());
 		Vec3d distanceVec = players[0].getPos().subtract(players[1].getPos());
 		Vec3d hDistanceVec = new Vec3d(distanceVec.x, 0, distanceVec.z);
-		Vec3d orthVec;
-		Vec3d offset = new Vec3d(0,0,0);
-
-		switch (distanceMode) {
-			case STATIC -> {
-				orthVec = Util.Orthoganal(distanceVec).normalize();
-				offset = orthVec.multiply(distance);
-				offset = offset.add(new Vec3d(0, height, 0));
-			}
-			case AUTO -> {
-				orthVec = Util.Orthoganal(hDistanceVec).normalize();
-				int fov = client.options.getFov().getValue();
-				float autoDist = Util.FindAutoDistance((float) distanceVec.horizontalLength(), fov);
-				offset = orthVec.multiply(autoDist + distance).add(new Vec3d(0, height, 0));
-			}
-		}
+		Vec3d orthVec = Util.Orthoganal(distanceVec).normalize();
+		Vec3d offset = orthVec.multiply(distance).add(new Vec3d(0, height, 0));
 
 		switch (anchor) {
-            case P1 -> {
-				newtargetPos = players[0].getPos().add(offset);
-				newtargetPos = newtargetPos.add(hDistanceVec.normalize().multiply(-xoffset));
+			case P1 -> {
+				newtargetPos = players[0].getPos();
+				offset = offset.add(hDistanceVec.normalize().multiply(-xoffset));
 			}
-			case P2 ->{
-				newtargetPos = players[1].getPos().add(offset);
-				newtargetPos = newtargetPos.add(hDistanceVec.normalize().multiply(xoffset));
+			case P2 -> {
+				newtargetPos = players[1].getPos();
+				offset = offset.add(hDistanceVec.normalize().multiply(xoffset));
 			}
 			default -> {
-				newtargetPos = avg.add(offset);
+				newtargetPos = avg;
 			}
 		}
 
+		switch (heightMode) {
+			case AVERAGE -> {
 
+			}
+			case GROUND -> {
+				float avgHeight = (groundHeights[0] + groundHeights[1]) / 2;
+				newtargetPos = new Vec3d(newtargetPos.x, avgHeight, newtargetPos.z);
+			}
+		}
 
+        if (Objects.requireNonNull(distanceMode) == DistanceMode.AUTO) {
+            int fov = client.options.getFov().getValue();
+            float autoDist = Util.FindAutoDistance((float) distanceVec.horizontalLength(), fov);
+            offset = offset.add(orthVec.multiply(autoDist));
+        }
+
+		newtargetPos = newtargetPos.add(offset);
 		return Util.SmoothStep(currentTargetPos, newtargetPos, smoothFactor * ((smoothFactor == 1) ? 1 : Util.DistanceSmoothingCoeff((float) distanceVec.length())));
 	}
 
@@ -196,13 +227,14 @@ public class FightCameraClient implements ClientModInitializer {
 	}
 
 	public static void toggle() {
-		active = !active;
-		if (active) {
+		toggled = !toggled;
+		if (toggled) {
 			if (client.player != null && updatePlayers()) {
 				sendMessage("Fight cam enabled!");
 
 				currentTargetPos = Util.Average(players[0].getPos(), players[1].getPos());
 				currentTargetYaw = CalculateCameraYaw();
+				updateGroundHeights();
 			}
 			else {
 				active = false;
@@ -251,8 +283,7 @@ public class FightCameraClient implements ClientModInitializer {
 		height = f;
 	}
 
-	public static void setDistanceMode(String s)
-	{
+	public static void setDistanceMode(String s) {
 		try {
 			var f = Float.parseFloat(s);
 			distance = f;
@@ -271,8 +302,7 @@ public class FightCameraClient implements ClientModInitializer {
 		}
 	}
 
-	public static void setAnchorMode(String s)
-	{
+	public static void setAnchorMode(String s) {
 		switch (s) {
 			case "avg" -> {
 				anchor = AnchorMode.AVERAGE;
@@ -288,14 +318,32 @@ public class FightCameraClient implements ClientModInitializer {
 				distanceMode = DistanceMode.STATIC;
 				sendMessage("Anchor set to player 2");
 			}
+			case null, default -> {
+				sendMessage("Anchor set to " + anchor.toString());
+			}
 		}
+	}
 
-		if (Objects.equals(s, "auto")) {
-			distanceMode = DistanceMode.AUTO;
-			sendMessage("Distance set to " + s);
+	public static void setHeightMode(String s) {
+		try {
+			var f = Float.parseFloat(s);
+			height = f;
+			sendMessage("Height set to " + f);
 		}
-		else {
-			sendMessage("Distance set to " + distanceMode.toString());
+		catch (NumberFormatException e) {
+			switch (s) {
+				case "avg" -> {
+					heightMode = HeightMode.AVERAGE;
+					sendMessage("Height mode set to AVERAGE");
+				}
+				case "ground" -> {
+					heightMode = HeightMode.GROUND;
+					sendMessage("Height mode set to GROUND");
+				}
+				case null, default -> {
+					sendMessage("Height mode set to " + heightMode.toString());
+				}
+			}
 		}
 	}
 
@@ -327,5 +375,15 @@ public class FightCameraClient implements ClientModInitializer {
 
 		FightCameraClient.setPlayers(new PlayerEntity[]{p1, p2});
 		return true;
+	}
+
+	public static void updateGroundHeights() {
+		for (int i = 0; i < 2; i++) {
+			PlayerEntity player = players[i];
+			HitResult raycast = player.getWorld().raycast(new RaycastContext(player.getEyePos(), player.getPos().add(new Vec3d(0, -1, 0)), RaycastContext.ShapeType.OUTLINE, RaycastContext.FluidHandling.NONE, ShapeContext.absent()));
+			if (raycast.getType() == HitResult.Type.BLOCK) {
+				groundHeights[i] = (float) raycast.getPos().y;
+			}
+		}
 	}
 }

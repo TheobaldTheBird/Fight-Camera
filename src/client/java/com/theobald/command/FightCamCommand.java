@@ -37,6 +37,12 @@ public class FightCamCommand {
         return builder.buildFuture();
     };
 
+    private static final SuggestionProvider<FabricClientCommandSource> HEIGHTMODE_SUGGESTIONS = (context, builder) -> {
+        builder.suggest("avg");
+        builder.suggest("ground");
+        return builder.buildFuture();
+    };
+
     public static void register() {
         LOGGER.info("Registering FightCam commands");
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
@@ -46,7 +52,7 @@ public class FightCamCommand {
                                         .suggests(DISTANCEMODE_SUGGESTIONS)
                                         .executes(context -> {
                                             String s = StringArgumentType.getString(context, "distance");
-                                            FightCameraClient.setDistanceMode(s);
+                                            FightCameraClient.setDistanceMode(s.toLowerCase());
                                             return 1;
                                         })))
                         .then(ClientCommandManager.literal("anchor")
@@ -54,15 +60,15 @@ public class FightCamCommand {
                                         .suggests(ANCHORMODE_SUGGESTIONS)
                                         .executes(context -> {
                                             String s = StringArgumentType.getString(context, "anchor");
-                                            FightCameraClient.setAnchorMode(s);
+                                            FightCameraClient.setAnchorMode(s.toLowerCase());
                                             return 1;
                                         })))
                         .then(ClientCommandManager.literal("height")
-                                .then(ClientCommandManager.argument("height", FloatArgumentType.floatArg())
+                                .then(ClientCommandManager.argument("height", StringArgumentType.string())
+                                        .suggests(HEIGHTMODE_SUGGESTIONS)
                                         .executes(context -> {
-                                            float f = FloatArgumentType.getFloat(context, "height");
-                                            FightCameraClient.setHeight(f);
-                                            sendMessage("Fight camera height set to " + f);
+                                            String s = StringArgumentType.getString(context, "height");
+                                            FightCameraClient.setHeightMode(s.toLowerCase());
                                             return 1;
                                         })))
                         .then(ClientCommandManager.literal("smooth")
