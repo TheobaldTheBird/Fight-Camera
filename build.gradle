@@ -3,7 +3,7 @@ plugins {
 	id 'maven-publish'
 }
 
-version = project.mod_version
+version = project.minecraft_version+'-'+project.mod_version
 group = project.maven_group
 
 base {
@@ -41,7 +41,6 @@ dependencies {
 
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-	modCompileOnly(rootProject.files('deps/flashback-0.31.0.jar'))
 }
 
 processResources {

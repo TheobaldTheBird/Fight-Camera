@@ -9,7 +9,6 @@
     "defaultRequire": 0
   },
   "mixins": [
-    "FlashbackCameraMixin",
     "LivingEntityRendererMixin",
     "PerspectiveMixin",
     "PlayerEntityMixin"
