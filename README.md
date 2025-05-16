@@ -2,6 +2,8 @@
 
 **Gives a fighting game style, side on view of 2 players. Fully compatible with Flashback replays**
 
+![](https://github.com/TheobaldTheBird/Fight-Camera/blob/a3cce29a1898a8b7c0575a38b6bceac3c5c4b889/fightcam.gif)
+
 # Usage:
 
 /fightcam players <player1> <player2> to set the camera's target players
