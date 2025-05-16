@@ -1,8 +1,5 @@
 package com.theobald.mixin;
 
-import com.moulberry.flashback.EnhancedFlight;
-import com.moulberry.flashback.Flashback;
-import com.moulberry.flashback.configuration.FlashbackConfig;
 import com.theobald.FightCameraClient;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
