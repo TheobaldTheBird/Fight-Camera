@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.theobald.FightCameraClient;
+import com.theobald.Util;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
@@ -74,7 +75,7 @@ public class FightCamCommand {
                         .then(ClientCommandManager.literal("smooth")
                                 .then(ClientCommandManager.argument("smoothFactor", FloatArgumentType.floatArg())
                                         .executes(context -> {
-                                            float f = FloatArgumentType.getFloat(context, "smoothFactor");
+                                            float f = Util.clamp(FloatArgumentType.getFloat(context, "smoothFactor"), 0, 1);
                                             FightCameraClient.setSmoothFactor(f);
                                             sendMessage("Fight camera smoothing set to " + f);
                                             return 1;
