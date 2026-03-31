@@ -87,7 +87,7 @@ public class Util
         if (world == null || player == null) return Collections.emptyList();
 
         List<Vec3d> pearlsPos = new ArrayList<>();
-        Vec3d playerPos = player.getPos();
+        Vec3d playerPos = player.getEntityPos();
         Box worldBox = new Box(
                 playerPos.x-500, -64, playerPos.z-500,
                 playerPos.x+500, 320, playerPos.z+500
@@ -97,7 +97,7 @@ public class Util
             if (entity instanceof EnderPearlEntity pearl) {
                 Entity owner = pearl.getOwner();
                 if (owner != null && owner.equals(player)) {
-                    pearlsPos.add(pearl.getPos());
+                    pearlsPos.add(pearl.getEntityPos());
                 }
             }
         }
@@ -123,8 +123,8 @@ public class Util
     }
 
     public static Vec3d getInterpolatedLook(Entity entity, float tickDelta) {
-        float yaw = MathHelper.lerp(tickDelta, entity.prevYaw, entity.getYaw());
-        float pitch = MathHelper.lerp(tickDelta, entity.prevPitch, entity.getPitch());
+        float yaw = MathHelper.lerp(tickDelta, entity.lastYaw, entity.getYaw());
+        float pitch = MathHelper.lerp(tickDelta, entity.lastPitch, entity.getPitch());
 
         return getRotationVector(pitch, yaw);
     }
